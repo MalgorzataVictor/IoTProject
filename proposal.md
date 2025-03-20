@@ -26,7 +26,7 @@ The system will detect objects within a predefined range and trigger a buzzer an
 #### Software & Technologies:
 - **Python** 
 - **VS Code** 
-- **Azure IoT Hub** ( data transmission and cloud monitoring)
+- **Azure IoT Hub** ( data transmission and cloud monitoring) / Blynk
 - **MQTT**  (  communication with IoT Hub)
 - **Azure Time Series Insights** ( real-time data visualization)
 - **Azure Functions** ( triggering automated responses)
