@@ -12,8 +12,9 @@ The system will detect objects within a predefined range and trigger a buzzer an
 **The system can be used in applications such as:**
 - **Parking assistance** (alerting drivers when they are too close to an obstacle)
 - **Blind spot detection** (for security or accessibility improvements)
-- **Smart home automation** (detecting obstacles in pathways)
-
+- **Smart home automation** (detecting obstacles in pathways (iRobot), turn on the lights when somone approaches)
+- **Automated Doors & Gates** (Activates doors when someone approaches)
+- **Smart Traffic Management** (Adaptive traffic lights)
 
 ## Tools, Technologies and Equipment
 
