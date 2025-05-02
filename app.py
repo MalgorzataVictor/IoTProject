@@ -2,24 +2,27 @@ import time
 import smbus
 from seeed_dht import DHT
 import io
+import os
+from datetime import datetime
 from picamera import PiCamera
+from PIL import Image, ImageDraw, ImageFont
 from msrest.authentication import ApiKeyCredentials
 from azure.cognitiveservices.vision.customvision.prediction import CustomVisionPredictionClient
 
 # Camera Config
 camera = PiCamera()
 camera.resolution = (640, 480)
-camera.rotation = 180  
-time.sleep(2)  
+camera.rotation = 180
+time.sleep(2)
 
 # LCD Config
-ADDRESS = 0x3e  # From your i2cdetect output
+ADDRESS = 0x3e
 bus = smbus.SMBus(1)
 
 # Temperature Sensor Config
 sensor = DHT("11", 5)
 
-# Custom Vision Config 
+# Custom Vision Config
 prediction_url = '*'
 prediction_key = '*'
 
@@ -33,6 +36,9 @@ iteration_name = parts[9]
 prediction_credentials = ApiKeyCredentials(in_headers={"Prediction-key": prediction_key})
 predictor = CustomVisionPredictionClient(endpoint, prediction_credentials)
 
+# Create directory for saved images
+os.makedirs('parking_images', exist_ok=True)
+
 def lcd_command(cmd):
     bus.write_byte_data(ADDRESS, 0x80, cmd)
 
@@ -41,70 +47,101 @@ def lcd_write(text):
         bus.write_byte_data(ADDRESS, 0x40, ord(char))
 
 def lcd_clear():
-    lcd_command(0x01) 
-    time.sleep(0.002)  
+    lcd_command(0x01)
+    time.sleep(0.002)
 
 def lcd_init():
     time.sleep(0.05)
-    lcd_command(0x38)  
+    lcd_command(0x38)
     time.sleep(0.05)
-    lcd_command(0x39)  
+    lcd_command(0x39)
     time.sleep(0.05)
-    lcd_command(0x14)  
+    lcd_command(0x14)
     time.sleep(0.05)
-    lcd_command(0x73)  
+    lcd_command(0x73)
     time.sleep(0.05)
-    lcd_command(0x56)  
+    lcd_command(0x56)
     time.sleep(0.05)
-    lcd_command(0x6C)  
+    lcd_command(0x6C)
     time.sleep(0.3)
-    lcd_command(0x38)  
+    lcd_command(0x38)
     time.sleep(0.05)
-    lcd_clear()        
-    lcd_command(0x0C)  
+    lcd_clear()
+    lcd_command(0x0C)
 
 def display_temperature(temp):
-    lcd_command(0x80)  # 1st line
+    lcd_command(0x80)
     lcd_write("Temperature:")
-    lcd_command(0xC0)  # 2nd line
+    lcd_command(0xC0)
     lcd_write(f"{temp}°C")
 
+def save_image_with_results(image_data, tag, probability, filename):
+    """Save image with parking tag overlay"""
+    try:
+        with open(filename, 'wb') as f:
+            f.write(image_data.getvalue())
+
+        img = Image.open(filename)
+        draw = ImageDraw.Draw(img)
+
+        try:
+            font = ImageFont.truetype("arial.ttf", 20)
+        except:
+            font = ImageFont.load_default()
+
+        text = f"Parking: {tag} ({probability:.1f}%)"
+        draw.text((10, 10), text, font=font, fill=(255, 255, 255))
+
+        annotated_filename = filename.replace("parking_images/", "parking_images/annotated_")
+        img.save(annotated_filename)
+        return annotated_filename
+
+    except Exception as e:
+        print(f"Error saving image: {str(e)}")
+        return None
+
 def analyze_parking(image_data):
-    """Send image to Custom Vision and return results"""
+    """Send image to Custom Vision and return the most probable parking status tag"""
     image_data.seek(0)
     results = predictor.classify_image(project_id, iteration_name, image_data.read())
-    
- 
-    occupied = 0
-    empty = 0
-    for prediction in results.predictions:
-        if prediction.tag_name == 'occupied_space':
-            occupied += 1
-        elif prediction.tag_name == 'empty_space':
-            empty += 1
-        print(f'{prediction.tag_name}:\t{prediction.probability * 100:.2f}%')
-    
-    return occupied, empty
+
+    # Sort and print all tag predictions
+    sorted_predictions = sorted(results.predictions, key=lambda p: p.probability, reverse=True)
+    for prediction in sorted_predictions:
+        print(f'{prediction.tag_name:<20}: {prediction.probability * 100:.2f}%')
+
+    # Return the top prediction
+    best_prediction = sorted_predictions[0]
+    tag_name = best_prediction.tag_name
+    probability = best_prediction.probability * 100
+    return tag_name, probability
 
 def take_and_analyze_photo():
-    """Capture photo and analyze parking spaces"""
+    """Capture photo, analyze parking, and save results"""
     try:
-     
         image_stream = io.BytesIO()
-        camera.capture(image_stream, 'jpeg')
-        
-       
-        occupied, empty = analyze_parking(image_stream)
-        
-    
+        camera.capture(image_stream, 'jpeg', quality=85)
+        image_stream.seek(0)
+
+        tag, probability = analyze_parking(image_stream)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"parking_images/parking_{timestamp}.jpg"
+
+        annotated_file = save_image_with_results(
+            image_stream, tag, probability, filename
+        )
+
+        # Display result on LCD
         lcd_clear()
         lcd_command(0x80)
-        lcd_write(f"Occupied: {occupied}")
+        lcd_write("Parking status:")
         lcd_command(0xC0)
-        lcd_write(f"Free: {empty}")
-        
-        return occupied, empty
-        
+        lcd_write(f"{tag}")
+
+        print(f"Images saved: {filename} and {annotated_file}")
+        return tag, probability
+
     except Exception as e:
         print(f"Analysis error: {str(e)}")
         return None, None
@@ -113,26 +150,23 @@ def main():
     try:
         lcd_init()
         print("System Ready (DHT11 + LCD + Camera + Custom Vision)")
-        
-      
-        for i in range(5):  
+
+        for i in range(5):
             _, temp = sensor.read()
             print(f'Temperature {i+1}/5: {temp}°C')
             display_temperature(temp)
             time.sleep(1)
-        
- 
+
         lcd_clear()
         lcd_command(0x80)
         lcd_write("Analyzing...")
-        
-        occupied, empty = take_and_analyze_photo()
-        time.sleep(5)  
-            
+
+        tag, probability = take_and_analyze_photo()
+        time.sleep(5)
+
     except Exception as e:
         print(f"Error: {str(e)}")
     finally:
-       
         lcd_clear()
         bus.close()
         camera.close()
