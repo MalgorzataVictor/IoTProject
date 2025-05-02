@@ -75,8 +75,7 @@ def display_temperature(temp):
     lcd_command(0xC0)
     lcd_write(f"{temp}°C")
 
-def save_image_with_results(image_data, tag, probability, filename):
-    """Save image with parking tag overlay"""
+def save_image_with_results(image_data, tag, probability, filename, temperature=None):
     try:
         with open(filename, 'wb') as f:
             f.write(image_data.getvalue())
@@ -89,8 +88,16 @@ def save_image_with_results(image_data, tag, probability, filename):
         except:
             font = ImageFont.load_default()
 
-        text = f"Parking: {tag} ({probability:.1f}%)"
-        draw.text((10, 10), text, font=font, fill=(255, 255, 255))
+        # Parking status 
+        status_text = f"Parking: {tag} ({probability:.1f}%)"
+        draw.text((10, 10), status_text, font=font, fill=(255, 255, 255))
+
+        # Temperature 
+        if temperature is not None:
+            temp_text = f"{temperature}°C"
+            text_width, _ = draw.textsize(temp_text, font=font)
+            image_width, _ = img.size
+            draw.text((image_width - text_width - 10, 10), temp_text, font=font, fill=(255, 255, 255))
 
         annotated_filename = filename.replace("parking_images/", "parking_images/annotated_")
         img.save(annotated_filename)
@@ -101,43 +108,35 @@ def save_image_with_results(image_data, tag, probability, filename):
         return None
 
 def analyze_parking(image_data):
-    """Send image to Custom Vision and return the most probable parking status tag"""
     image_data.seek(0)
     results = predictor.classify_image(project_id, iteration_name, image_data.read())
 
-    # Sort and print all tag predictions
     sorted_predictions = sorted(results.predictions, key=lambda p: p.probability, reverse=True)
     for prediction in sorted_predictions:
         print(f'{prediction.tag_name:<20}: {prediction.probability * 100:.2f}%')
 
-    # Return the top prediction
     best_prediction = sorted_predictions[0]
-    tag_name = best_prediction.tag_name
-    probability = best_prediction.probability * 100
-    return tag_name, probability
+    return best_prediction.tag_name, best_prediction.probability * 100
 
 def take_and_analyze_photo():
-    """Capture photo, analyze parking, and save results"""
     try:
         image_stream = io.BytesIO()
         camera.capture(image_stream, 'jpeg', quality=85)
         image_stream.seek(0)
 
         tag, probability = analyze_parking(image_stream)
+        _, temperature = sensor.read()
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"parking_images/parking_{timestamp}.jpg"
 
-        annotated_file = save_image_with_results(
-            image_stream, tag, probability, filename
-        )
+        annotated_file = save_image_with_results(image_stream, tag, probability, filename, temperature)
 
-        # Display result on LCD
         lcd_clear()
         lcd_command(0x80)
-        lcd_write("Parking status:")
-        lcd_command(0xC0)
         lcd_write(f"{tag}")
+        lcd_command(0xC0)
+        lcd_write(f"{probability:.1f}%")
 
         print(f"Images saved: {filename} and {annotated_file}")
         return tag, probability
