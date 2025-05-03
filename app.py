@@ -11,6 +11,7 @@ from azure.cognitiveservices.vision.customvision.prediction import CustomVisionP
 import json
 from azure.iot.device import IoTHubDeviceClient, Message
 import csv
+from azure.iot.device.exceptions import ConnectionFailedError
 
 
 
@@ -139,7 +140,22 @@ def log_temperature(temperature):
     log_entry = f"{timestamp} - {temperature:.1f}°C\n"
     
     with open(LOG_FILE, 'a') as f:
-        f.write(log_entry)        
+        f.write(log_entry)     
+
+from azure.iot.device.exceptions import ConnectionFailedError
+
+def send_with_retry(device_client, message, max_retries=3, initial_delay=1):
+    for attempt in range(max_retries):
+        try:
+            device_client.send_message(message)
+            return True
+        except (ConnectionFailedError, Exception) as e:
+            if attempt == max_retries - 1:
+                print(f"Final attempt failed: {str(e)}")
+                return False
+            delay = initial_delay * (2 ** attempt)  # Exponential backoff
+            print(f"Attempt {attempt+1} failed. Retrying in {delay}s...")
+            time.sleep(delay)           
 
 def take_and_process_photo():
     image_stream = io.BytesIO()
@@ -170,7 +186,7 @@ def take_and_process_photo():
     }
     message = Message(json.dumps(telemetry))
     try:
-        device_client.send_message(message)
+        send_with_retry(device_client, message)
         print("Telemetry sent to Azure IoT Hub.")
     except Exception as e:
         print(f"Failed to send telemetry: {str(e)}")
