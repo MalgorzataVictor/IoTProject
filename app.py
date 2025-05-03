@@ -10,6 +10,8 @@ from msrest.authentication import ApiKeyCredentials
 from azure.cognitiveservices.vision.customvision.prediction import CustomVisionPredictionClient
 import json
 from azure.iot.device import IoTHubDeviceClient, Message
+import csv
+
 
 
 
@@ -50,8 +52,11 @@ iteration_name = parts[9]
 prediction_credentials = ApiKeyCredentials(in_headers={"Prediction-key": prediction_key})
 predictor = CustomVisionPredictionClient(endpoint, prediction_credentials)
 
-# Create image directory
+# Image directory
 os.makedirs('parking_images', exist_ok=True)
+
+# Log directory
+LOG_FILE = "temperature_logs.txt"
 
 # LCD Functions
 def lcd_command(cmd):
@@ -127,12 +132,24 @@ def save_image_with_results(image_data, tag, probability, filename, temperature=
         print(f"Error saving image: {str(e)}")
         return None
 
+
+def log_temperature(temperature):
+    """Logs temperature with timestamp in format: 2025-05-04T14:30:22 - 23.5°C"""
+    timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    log_entry = f"{timestamp} - {temperature:.1f}°C\n"
+    
+    with open(LOG_FILE, 'a') as f:
+        f.write(log_entry)        
+
 def take_and_process_photo():
     image_stream = io.BytesIO()
     camera.capture(image_stream, 'jpeg', quality=85)
 
     tag, probability = analyze_parking(image_stream)
     _, temp = sensor.read()
+
+    log_temperature(temp)
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"parking_images/parking_{timestamp}.jpg"
     annotated_file = save_image_with_results(image_stream, tag, probability, filename, temp)
