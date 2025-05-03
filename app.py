@@ -8,6 +8,7 @@ from picamera import PiCamera
 from PIL import Image, ImageDraw, ImageFont
 from msrest.authentication import ApiKeyCredentials
 from azure.cognitiveservices.vision.customvision.prediction import CustomVisionPredictionClient
+import json
 
 # Camera Config
 camera = PiCamera()
@@ -22,23 +23,23 @@ bus = smbus.SMBus(1)
 # Temperature Sensor Config
 sensor = DHT("11", 5)
 
-# Custom Vision Config
-prediction_url = '*'
-prediction_key = '*'
+# Azure Custom Vision Config
+with open('config.json') as config_file:
+    config = json.load(config_file)
+prediction_url = config['prediction_url']
+prediction_key = config['prediction_key']
 
-# Parse Custom Vision endpoint
 parts = prediction_url.split('/')
 endpoint = 'https://' + parts[2]
 project_id = parts[6]
 iteration_name = parts[9]
-
-# Initialize predictor
 prediction_credentials = ApiKeyCredentials(in_headers={"Prediction-key": prediction_key})
 predictor = CustomVisionPredictionClient(endpoint, prediction_credentials)
 
-# Create directory for saved images
+# Create image directory
 os.makedirs('parking_images', exist_ok=True)
 
+# LCD Functions
 def lcd_command(cmd):
     bus.write_byte_data(ADDRESS, 0x80, cmd)
 
@@ -69,11 +70,20 @@ def lcd_init():
     lcd_clear()
     lcd_command(0x0C)
 
-def display_temperature(temp):
+def display_lcd_line1(time_str, temp):
     lcd_command(0x80)
-    lcd_write("Temperature:")
+    lcd_write(f"{time_str} {temp:.1f}C")
+
+def display_lcd_line2(text):
     lcd_command(0xC0)
-    lcd_write(f"{temp}°C")
+    lcd_write(text[:16])  # Limit to 16 chars for LCD
+
+def analyze_parking(image_data):
+    image_data.seek(0)
+    results = predictor.classify_image(project_id, iteration_name, image_data.read())
+    sorted_predictions = sorted(results.predictions, key=lambda p: p.probability, reverse=True)
+    best_prediction = sorted_predictions[0]
+    return best_prediction.tag_name, best_prediction.probability * 100
 
 def save_image_with_results(image_data, tag, probability, filename, temperature=None):
     try:
@@ -82,19 +92,15 @@ def save_image_with_results(image_data, tag, probability, filename, temperature=
 
         img = Image.open(filename)
         draw = ImageDraw.Draw(img)
-
         try:
             font = ImageFont.truetype("arial.ttf", 20)
         except:
             font = ImageFont.load_default()
 
-        # Parking status 
-        status_text = f"Parking: {tag} ({probability:.1f}%)"
-        draw.text((10, 10), status_text, font=font, fill=(255, 255, 255))
+        draw.text((10, 10), f"Parking: {tag} ({probability:.1f}%)", font=font, fill=(255, 255, 255))
 
-        # Temperature 
         if temperature is not None:
-            temp_text = f"{temperature}°C"
+            temp_text = f"{temperature:.1f}°C"
             text_width, _ = draw.textsize(temp_text, font=font)
             image_width, _ = img.size
             draw.text((image_width - text_width - 10, 10), temp_text, font=font, fill=(255, 255, 255))
@@ -107,69 +113,41 @@ def save_image_with_results(image_data, tag, probability, filename, temperature=
         print(f"Error saving image: {str(e)}")
         return None
 
-def analyze_parking(image_data):
-    image_data.seek(0)
-    results = predictor.classify_image(project_id, iteration_name, image_data.read())
+def take_and_process_photo():
+    image_stream = io.BytesIO()
+    camera.capture(image_stream, 'jpeg', quality=85)
 
-    sorted_predictions = sorted(results.predictions, key=lambda p: p.probability, reverse=True)
-    for prediction in sorted_predictions:
-        print(f'{prediction.tag_name:<20}: {prediction.probability * 100:.2f}%')
+    tag, probability = analyze_parking(image_stream)
+    _, temp = sensor.read()
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"parking_images/parking_{timestamp}.jpg"
+    annotated_file = save_image_with_results(image_stream, tag, probability, filename, temp)
 
-    best_prediction = sorted_predictions[0]
-    return best_prediction.tag_name, best_prediction.probability * 100
+    now_str = datetime.now().strftime("%H:%M")
+    lcd_clear()
+    display_lcd_line1(now_str, temp)
+    display_lcd_line2(tag)
 
-def take_and_analyze_photo():
-    try:
-        image_stream = io.BytesIO()
-        camera.capture(image_stream, 'jpeg', quality=85)
-        image_stream.seek(0)
-
-        tag, probability = analyze_parking(image_stream)
-        _, temperature = sensor.read()
-
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"parking_images/parking_{timestamp}.jpg"
-
-        annotated_file = save_image_with_results(image_stream, tag, probability, filename, temperature)
-
-        lcd_clear()
-        lcd_command(0x80)
-        lcd_write(f"{tag}")
-        lcd_command(0xC0)
-        lcd_write(f"{probability:.1f}%")
-
-        print(f"Images saved: {filename} and {annotated_file}")
-        return tag, probability
-
-    except Exception as e:
-        print(f"Analysis error: {str(e)}")
-        return None, None
+    print(f"[{now_str}] {tag} ({probability:.1f}%) - Temp: {temp}°C")
+    print(f"Saved: {filename}, Annotated: {annotated_file}")
 
 def main():
     try:
         lcd_init()
-        print("System Ready (DHT11 + LCD + Camera + Custom Vision)")
+        print("System running. Press Ctrl+C to stop.")
+        while True:
+            take_and_process_photo()
+            time.sleep(10)  # Delay between photo cycles
 
-        for i in range(5):
-            _, temp = sensor.read()
-            print(f'Temperature {i+1}/5: {temp}°C')
-            display_temperature(temp)
-            time.sleep(1)
-
-        lcd_clear()
-        lcd_command(0x80)
-        lcd_write("Analyzing...")
-
-        tag, probability = take_and_analyze_photo()
-        time.sleep(5)
-
+    except KeyboardInterrupt:
+        print("\nStopped by user.")
     except Exception as e:
         print(f"Error: {str(e)}")
     finally:
         lcd_clear()
         bus.close()
         camera.close()
-        print("Program completed. Resources released.")
+        print("Cleaned up.")
 
 if __name__ == '__main__':
     main()
