@@ -9,6 +9,20 @@ from PIL import Image, ImageDraw, ImageFont
 from msrest.authentication import ApiKeyCredentials
 from azure.cognitiveservices.vision.customvision.prediction import CustomVisionPredictionClient
 import json
+from azure.iot.device import IoTHubDeviceClient, Message
+
+
+
+#Communication Config
+id = 'hahauekIOT'
+connection_string = "HostName=soil-moisture-sensor-2025-mv.azure-devices.net;DeviceId=soil-moisture-sensor;SharedAccessKey=9jWamW6AVp+BveBdrHhpikppb+gcfWm4zAsQ4TTIBSc="
+
+device_client = IoTHubDeviceClient.create_from_connection_string(connection_string)
+
+print('Connecting')
+device_client.connect()
+print('Connected')
+
 
 # Camera Config
 camera = PiCamera()
@@ -131,13 +145,26 @@ def take_and_process_photo():
     print(f"[{now_str}] {tag} ({probability:.1f}%) - Temp: {temp}°C")
     print(f"Saved: {filename}, Annotated: {annotated_file}")
 
+      # Send data to Azure IoT Hub
+    telemetry = {
+        "timestamp": datetime.now().isoformat(),
+        "temperature": round(temp, 1),
+        "occupancy": tag
+    }
+    message = Message(json.dumps(telemetry))
+    try:
+        device_client.send_message(message)
+        print("Telemetry sent to Azure IoT Hub.")
+    except Exception as e:
+        print(f"Failed to send telemetry: {str(e)}")
+
 def main():
     try:
         lcd_init()
         print("System running. Press Ctrl+C to stop.")
         while True:
             take_and_process_photo()
-            time.sleep(10)  # Delay between photo cycles
+            time.sleep(10)  
 
     except KeyboardInterrupt:
         print("\nStopped by user.")
