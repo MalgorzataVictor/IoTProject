@@ -18,7 +18,10 @@ from azure.iot.device.exceptions import ConnectionFailedError
 
 #Communication Config
 id = 'hahauekIOT'
-connection_string = "HostName=soil-moisture-sensor-2025-mv.azure-devices.net;DeviceId=soil-moisture-sensor;SharedAccessKey=9jWamW6AVp+BveBdrHhpikppb+gcfWm4zAsQ4TTIBSc="
+with open("config.json") as f:
+    config = json.load(f)
+
+connection_string = config["connection_string"]
 
 device_client = IoTHubDeviceClient.create_from_connection_string(connection_string)
 
