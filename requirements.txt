@@ -1,0 +1,21 @@
+# Azure IoT Core
+azure-iot-device==2.13.0          
+azure-functions==1.11.2           
+
+# Computer Vision
+azure-cognitiveservices-vision-customvision==3.1.0 
+pillow==10.0.0                    
+
+# Hardware Integration
+picamera==1.13                   
+seeed-python-dht==1.0.0          
+smbus2==0.4.1                  
+
+# Data Handling
+azure-storage-blob==12.14.1       
+msrest==0.7.1                     
+
+# Visualization & Analysis
+pandas==1.5.3                   
+numpy==1.24.3                    
+matplotlib==3.7.1                 
