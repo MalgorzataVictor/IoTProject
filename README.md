@@ -48,7 +48,7 @@ Predictions are sent to Azure IoT Hub, processed with Azure Functions, stored in
 - Grove temperature and humidity sensor (DHT11)
 - Grove - 16 x 2 LCD
 - Parking (in my case DIY)
-
+![Parking](./resources/parking.jpg)
 
 ### **Software**  
 - Raspberry Pi OS (Legacy 32-bit) Lite - BULLSEYE
@@ -178,8 +178,18 @@ The system leverages Azure Custom Vision’s image classification model, trained
 
 3.Edge Processing: Results are locally annotated on images (saved to parking_images/) and packaged into JSON telemetry for Azure IoT Hub
 
+```bash
+def analyze_parking(image_data):
+    image_data.seek(0)
+    results = predictor.classify_image(project_id, iteration_name, image_data.read())
+    sorted_predictions = sorted(results.predictions, key=lambda p: p.probability, reverse=True)
+    best_prediction = sorted_predictions[0]
+    return best_prediction.tag_name, best_prediction.probability * 100
 
-![Azure Stats](./resources/customVision.png)
+```
+
+
+![Custom Vision](./resources/customVision.png)
 
 *AI classifies parking states with high accuracy, working best for empty spots and needing minor improvements for full occupancy detection.*
 
@@ -217,6 +227,33 @@ JSON-encoded telemetry is stored in Azure Blob Storage. Messages are base64 enco
 
 ```
 
+```bash
+
+# Process blobs
+for blob in client.list_blobs():
+    try:
+        data = client.download_blob(blob.name).readall().decode('utf-8')
+        for line in data.splitlines():
+            try:
+                msg = json.loads(line)
+                body_b64 = msg["Body"] + "==="[:len(msg["Body"]) % 4]
+                body = json.loads(base64.b64decode(body_b64).decode('utf-8'))
+                
+                records.append({
+                    "timestamp": pd.to_datetime(body["timestamp"]),
+                    "temperature": float(body["temperature"]),
+                    "occupancy": body["occupancy"]
+                })
+            except Exception as e:
+                print(f"Skipped line: {e}")
+    except Exception as e:
+        print(f"Failed to process blob: {e}")
+
+df = pd.DataFrame(records)
+
+```
+
+
 ---
 
 ## 📊 Data Visualization  
@@ -224,7 +261,7 @@ JSON-encoded telemetry is stored in Azure Blob Storage. Messages are base64 enco
 ### **Real-time Data Visualisation**
 The Raspberry Pi LCD module displays live sensor readings including temperature and AI-predicted parking occupancy. This real-time feedback enables immediate local insight into space availability.
 
-![Azure Stats](./resources/LCD.jpg)
+![LCD](./resources/LCD.jpg)
 
 ### **Blob Data Summary Output**
 Example output from the data visualization script showing parsed telemetry stored in Azure Blob. Each record includes timestamp, temperature, and occupancy state — all used to build historical trends.
