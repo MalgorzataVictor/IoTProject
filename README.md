@@ -37,6 +37,7 @@ Predictions are sent to Azure IoT Hub, processed with Azure Functions, stored in
 ---
 
 ## 📐 System Architecture  
+![Architecture](./resources/architecture.png)
 
 ---
 
