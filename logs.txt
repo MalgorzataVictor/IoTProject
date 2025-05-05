@@ -1,0 +1,14 @@
+2025-05-05T00:41:21 - 23.0°C - completely_empty
+2025-05-05T00:41:32 - 23.0°C - half_full
+2025-05-05T00:41:44 - 22.0°C - half_full
+2025-05-05T00:41:56 - 22.0°C - fully_occupied
+2025-05-05T00:42:08 - 22.0°C - mostly_empty
+2025-05-05T00:42:19 - 22.0°C - completely_empty
+2025-05-05T00:42:31 - 22.0°C - half_full
+2025-05-05T00:42:42 - 22.0°C - half_full
+2025-05-05T00:42:54 - 22.0°C - mostly_empty
+2025-05-05T00:43:06 - 23.0°C - fully_occupied
+2025-05-05T00:43:17 - 23.0°C - half_full
+2025-05-05T00:43:28 - 23.0°C - fully_occupied
+2025-05-05T00:43:40 - 24.0°C - mostly_full
+2025-05-05T00:43:51 - 24.0°C - mostly_full
