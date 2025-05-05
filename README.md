@@ -319,6 +319,10 @@ Temperature variations logged during the monitoring period. The data can help co
 
 ## 🎬 Project Demo  
 
+[![Watch the demo](https://img.youtube.com/vi/z4gg5x65rGc/hqdefault.jpg)](https://youtu.be/z4gg5x65rGc)
+
+Click the image above or [watch the demo on YouTube](https://youtu.be/z4gg5x65rGc).
+
 ---
 
 ## ⚠️ Troubleshooting  
