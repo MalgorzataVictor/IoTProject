@@ -146,13 +146,18 @@ python plot_from_blob.py
 
 ### **Telementry Payload**
 ```bash
-{
-  "timestamp": "2024-05-20T14:30:00Z",
-  "device_id": "parking-pi-01",
-  "temperature": 23.5,
-  "occupancy": "mostly_empty",
-  "confidence": 0.92
-}
+     # Send data to Azure IoT Hub
+  telemetry = {
+        "timestamp": datetime.now().isoformat(),
+        "temperature": round(temp, 1),
+        "occupancy": tag
+    }
+    message = Message(json.dumps(telemetry))
+    try:
+        send_with_retry(device_client, message)
+        print("Telemetry sent to Azure IoT Hub.")
+    except Exception as e:
+        print(f"Failed to send telemetry: {str(e)}")
 ```
 
 
@@ -229,7 +234,7 @@ Found 3 blobs in container
 
 Total records processed: 24
 
-First 50 records:
+First 24 records:
     timestamp                      temperature   occupancy
 0  2025-05-04 00:04:29.351795    21.0          fully_occupied
 1  2025-05-04 00:04:40.746437    21.0          mostly_empty
@@ -260,6 +265,7 @@ First 50 records:
 
 ### **Visulaisation**
 Occupancy trends over time, illustrating the dynamic nature of parking lot usage. This graph is generated from decoded telemetry data retrieved from Azure Blob.
+
 ![Occupancy Plot](./resources/occupancy_plot.png) 
 
 Temperature variations logged during the monitoring period. The data can help correlate environmental conditions with occupancy patterns.
@@ -360,6 +366,60 @@ UnicodeDecodeError: HTTPError: 401 Client Error: Unauthorized for url
   ---
 
   
-## ⚔️ Challenges  
+## ⚔️ Challenges  & Solutions
+
+### **1. No Access to a Real Parking Lot**
+
+**Problem:**
+
+- Couldn’t deploy the Pi in an actual parking lot 
+- Needed diverse "occupancy states" for training data
+
+**Solution:**
+
+- Built a DIY paper parking lot with movable paper cars
+- Scaled-down parking spaces drawn on cardboard.
+- Manually rearranged cars to simulate different occupancy levels and create training scenarios for AI 
+
+
+### **2. Capturing Quality Training Images**
+
+**Problem:**
+
+- Needed consistent angles/lighting for Custom Vision AI.
+- DIY setup introduced glare/shadow artifacts.
+
+**Solution:**
+
+- Built a fixed camera mount 
+- Took around 100 images per tag
+- Top-down shots to mimic parking lot cameras
+- Variations: Moved cars, changed orientations, used images on the phone
+
+### **3. Bad AI Prediction Accuracy**
+
+**Problem:**
+- Initial model had <50% confidence for "mostly_full" and "half_full".
+- Misclassified shadows as cars.
+
+**Solution:**
+- More data: Added more training images per tag
+- Used Azure Custom Vision’s "Advanced Training" mode instead of quick one
+
+### **4. Messy Real-World Data Visualization**
+
+**Problem:**
+- Gaps in data (system wasn’t running 24/7 due to manual car rearrangements).
+- Mixed data types (temperature = numbers, occupancy = categories).
+
+**Solution:**
+- Created two separate charts (different types) for temperature and occupancy
+- Resampled the data into fixed intervals
+
+### **🔑 Key Takeaways**
+- DIY! -  Simulating real-world conditions takes creativity (and patience).
+- Hardware is Fragile: 50% of issues were loose cables
+- AI Needs LOTS OF DATA IN 
+- Real Data is Inconsistent: Gaps, outliers, and noise
 
 ---
