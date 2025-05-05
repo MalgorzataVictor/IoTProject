@@ -3,8 +3,7 @@ import base64
 import pandas as pd
 import matplotlib.pyplot as plt
 from azure.storage.blob import ContainerClient
-from matplotlib.dates import DayLocator, DateFormatter
-from matplotlib.ticker import MaxNLocator
+from matplotlib.dates import DateFormatter
 import numpy as np
 
 # Load configuration
@@ -27,7 +26,7 @@ for blob in client.list_blobs():
                 msg = json.loads(line)
                 body_b64 = msg["Body"] + "==="[:len(msg["Body"]) % 4]
                 body = json.loads(base64.b64decode(body_b64).decode('utf-8'))
-                
+
                 records.append({
                     "timestamp": pd.to_datetime(body["timestamp"]),
                     "temperature": float(body["temperature"]),
@@ -43,89 +42,62 @@ df = pd.DataFrame(records)
 # Display ALL records in terminal
 pd.set_option('display.max_rows', None)
 print(f"\nTotal records processed: {len(df)}")
-print("\nFirst 50 records:")
-print(df.head(50).to_string()) 
-print("\n...")
 
-# Plot configuration for Temperature
-def plot_temperature(data):
-    plt.figure(figsize=(14, 7))
-    ax = plt.gca()
-    
-    data.sort_values("timestamp", inplace=True)
-    ax.plot(data["timestamp"], 
-            data["temperature"], 
-            marker='o', 
-            linestyle='-', 
-            color='blue',
-            label='Temperature')
-    
-    # Format axes
-    ax.xaxis.set_major_locator(DayLocator())
-    ax.xaxis.set_major_formatter(DateFormatter('%d/%m/%Y'))
-    plt.xticks(rotation=45, ha='right')
-    plt.xlabel("Date")
-    plt.ylabel("Temperature (°C)")
-    plt.title("Temperature Over Time")
-    plt.grid(True, alpha=0.3)
-    plt.legend()
-    
-    plt.tight_layout()
-    plt.savefig("temperature_plot.png", dpi=120)
-    print("\nTemperature plot saved as 'temperature_plot.png'")
-
-# Plot configuration for Occupancy (Count-based)
-def plot_occupancy(data):
-    plt.figure(figsize=(16, 8))  
-    ax = plt.gca()
-    
- 
-    data['date'] = data['timestamp'].dt.date
-    daily_counts = data.groupby(['date', 'occupancy']).size().unstack().fillna(0)
-    
- 
-    states = ['completely_empty', 'mostly_empty', 'half_full', 'mostly_full', 'fully_occupied']
-    colors = ['#8EB15C', '#C1E1C1', '#FFD700', '#FFA500', '#FF6B6B']  
-    
-   
-    bar_width = 0.15
-    dates = pd.to_datetime(daily_counts.index)
-    x = np.arange(len(dates))
-    
-    for i, state in enumerate(states):
-        if state in daily_counts.columns:
-            ax.bar(x + i*bar_width, daily_counts[state], 
-                   width=bar_width, color=colors[i], 
-                   label=state.replace('_', ' ').title(),
-                   edgecolor='grey', linewidth=0.5)
-    
-    # Format axes
-    ax.set_xticks(x + bar_width*2)
-    ax.set_xticklabels([date.strftime('%d/%m/%Y') for date in dates], rotation=45)
-    ax.set_xlabel("Date", fontsize=12)
-    ax.set_ylabel("Number of Occurrences", fontsize=12)
-    ax.set_title("Daily Parking Occupancy Counts", fontsize=14, pad=20)
-    ax.grid(True, alpha=0.2, axis='y')
-    
-    # Improved legend placement and style
-    legend = ax.legend(
-        bbox_to_anchor=(1.25, 1),  
-        loc='upper left',
-        framealpha=1,
-        title='Occupancy State',
-        title_fontsize=12,
-        fontsize=10
-    )
-    
-    
-    plt.tight_layout()
-    plt.savefig("occupancy_plot.png", dpi=120, bbox_inches='tight')
-    print("Occupancy counts plot saved as 'occupancy_plot.png'")
-
-# Generate and display plots
+# If not empty, continue with plots
 if not df.empty:
-    plot_temperature(df)
-    plot_occupancy(df)
-    plt.show()  
+    df.sort_values("timestamp", inplace=True)
+    df_latest = df.tail(22).copy()
+    df_latest["synthetic_time"] = pd.date_range(start=pd.Timestamp.now(), periods=22, freq="10s")
+
+    # Show latest 22 records
+    print("\nLatest 22 records:")
+    print(df_latest.to_string(index=False))
+
+    # Temperature Plot (keep as is)
+    def plot_temperature(data):
+        plt.figure(figsize=(14, 7))
+        ax = plt.gca()
+        ax.plot(data["synthetic_time"], data["temperature"], marker='o', linestyle='-', color='blue', label='Temperature')
+
+        ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
+        plt.xticks(rotation=45, ha='right')
+        plt.xlabel("Time ")
+        plt.ylabel("Temperature (°C)")
+        plt.title("Temperature Over Synthetic Time")
+        plt.grid(True, alpha=0.3)
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig("temperature_plot.png", dpi=120)
+        print("\nTemperature plot saved as 'temperature_plot.png'")
+
+    # Occupancy Bar Chart (counts per category, original style)
+    def plot_occupancy_counts(data):
+        plt.figure(figsize=(10, 6))
+        occupancy_order = ['completely_empty', 'mostly_empty', 'half_full', 'mostly_full', 'fully_occupied']
+        color_map = {
+            'completely_empty': '#8EB15C',
+            'mostly_empty': '#C1E1C1',
+            'half_full': '#FFD700',
+            'mostly_full': '#FFA500',
+            'fully_occupied': '#FF6B6B'
+        }
+
+        counts = data['occupancy'].value_counts().reindex(occupancy_order, fill_value=0)
+
+        plt.bar(counts.index.str.replace('_', ' ').str.title(), counts.values,
+                color=[color_map[o] for o in counts.index])
+        plt.xlabel("Occupancy State", fontsize=12)
+        plt.ylabel("Count", fontsize=12)
+        plt.title("Occupancy State Counts", fontsize=14, pad=20)
+        plt.xticks(rotation=30)
+        plt.grid(axis='y', alpha=0.3)
+        plt.tight_layout()
+        plt.savefig("occupancy_plot.png", dpi=120)
+        print("Occupancy plot saved as 'occupancy_plot.png'")
+
+    # Plot both
+    plot_temperature(df_latest)
+    plot_occupancy_counts(df)
+
 else:
-    print("No valid data to plot")
+    print("No valid data to plot.")

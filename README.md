@@ -194,6 +194,11 @@ def analyze_parking(image_data):
 
 *AI classifies parking states with high accuracy, working best for empty spots and needing minor improvements for full occupancy detection.*
 
+### **Raw Image**
+![Raw](./resources/raw.jpg)
+
+### **Annotated Image**
+![Annotated](./resources/annotated.jpg)
 ---
 
 ## 🗄️ IoT Storage  
