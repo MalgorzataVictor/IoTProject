@@ -155,7 +155,7 @@ def send_with_retry(device_client, message, max_retries=3, initial_delay=1):
             if attempt == max_retries - 1:
                 print(f"Final attempt failed: {str(e)}")
                 return False
-            delay = initial_delay * (2 ** attempt)  # Exponential backoff
+            delay = initial_delay * (2 ** attempt) 
             print(f"Attempt {attempt+1} failed. Retrying in {delay}s...")
             time.sleep(delay)           
 
