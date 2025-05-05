@@ -12,3 +12,4 @@
 2025-05-05T00:43:28 - 23.0°C - fully_occupied
 2025-05-05T00:43:40 - 24.0°C - mostly_full
 2025-05-05T00:43:51 - 24.0°C - mostly_full
+2025-05-05T03:39:13 - 23.0°C - fully_occupied

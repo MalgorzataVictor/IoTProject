@@ -118,6 +118,8 @@ python plot_from_blob.py
 ## 🌀 Data Flow  
 The Raspberry Pi runs app.py to capture images and temperature data every 10 seconds. Azure Custom Vision AI analyzes each image, classifying parking occupancy into five states with confidence scores. This data merges into JSON payloads and transmits to Azure IoT Hub. Azure Functions processes data, while Blob Storage archives raw data for. Locally, plot_from_blob.py generates real-time dashboards.
 
+![Azure Stats](./resources/LCD.jpg)
+
 ### **Telementry Payload**
 ```bash
 {
@@ -130,7 +132,7 @@ The Raspberry Pi runs app.py to capture images and temperature data every 10 sec
 ```
 
 
-![Azure Stats](./resources/azure_stats.png){: width="700" height="300"}
+![Azure Stats](./resources/azure_stats.png)
     
 
 ---
@@ -148,7 +150,7 @@ The system leverages Azure Custom Vision’s image classification model, trained
 3.Edge Processing: Results are locally annotated on images (saved to parking_images/) and packaged into JSON telemetry for Azure IoT Hub
 
 
-![Azure Stats](./resources/customVision.png){: width="700" height="500"}
+![Azure Stats](./resources/customVision.png)
 
 *AI classifies parking states with high accuracy, working best for empty spots and needing minor improvements for full occupancy detection.*
 
@@ -176,6 +178,7 @@ The system leverages Azure Custom Vision’s image classification model, trained
 
 ### **Azure Blob**
 
+JSON-encoded telemetry is stored in Azure Blob Storage. Messages are base64 encoded by Event Hub, decoded in plot_from_blob.py. Each blob contains multiple newline-delimited messages
 ```bash
 {"EnqueuedTimeUtc":"2025-05-04T23:41:21.3940000Z","Properties":{},"SystemProperties":{"connectionDeviceId":"soil-moisture-sensor","connectionAuthMethod":"{\"scope\":\"device\",\"type\":\"sas\",\"issuer\":\"iothub\"}","connectionDeviceGenerationId":"638765239356645892","enqueuedTime":"2025-05-04T23:41:21.3940000Z"},"Body":"eyJ0aW1lc3RhbXAiOiAiMjAyNS0wNS0wNVQwMDo0MToyMS4zMDM0NjgiLCAidGVtcGVyYXR1cmUiOiAyMywgIm9jY3VwYW5jeSI6ICJjb21wbGV0ZWx5X2VtcHR5In0="}
 {"EnqueuedTimeUtc":"2025-05-04T23:41:32.9560000Z","Properties":{},"SystemProperties":{"connectionDeviceId":"soil-moisture-sensor","connectionAuthMethod":"{\"scope\":\"device\",\"type\":\"sas\",\"issuer\":\"iothub\"}","connectionDeviceGenerationId":"638765239356645892","enqueuedTime":"2025-05-04T23:41:32.9560000Z"},"Body":"eyJ0aW1lc3RhbXAiOiAiMjAyNS0wNS0wNVQwMDo0MTozMi44NjQwNTUiLCAidGVtcGVyYXR1cmUiOiAyMywgIm9jY3VwYW5jeSI6ICJoYWxmX2Z1bGwifQ=="}
@@ -186,7 +189,7 @@ The system leverages Azure Custom Vision’s image classification model, trained
 
 ## 📊 Data Visualization  
 
-![Occupancy Plot](./resources/occupancy_plot.png){: width="900" height="400"} ![Temperature Plot](./resources/temperature_plot.png){: width="700" height="400"}
+![Occupancy Plot](./resources/occupancy_plot.png) ![Temperature Plot](./resources/temperature_plot.png)
 
 ---
 
@@ -196,8 +199,17 @@ The system leverages Azure Custom Vision’s image classification model, trained
 
 ## ⚠️ Troubleshooting  
 
+### **1. Camera Not Detected**
+- **Symptoms**:  
+  `picamera.exc.PiCameraError` 
+- **Fix**:  
+  ```bash
+  sudo raspi-config  
+  sudo reboot
+  vcgencmd get_camera  # Verify "supported=1 detected=1"
+
 ---
 
-## ⚔️ Challenges & Solutions  
+## ⚔️ Challenges  
 
 ---
