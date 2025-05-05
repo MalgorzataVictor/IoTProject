@@ -16,6 +16,7 @@ from azure.iot.device.exceptions import ConnectionFailedError
 
 
 
+
 #Communication Config
 id = 'hahauekIOT'
 with open("config.json") as f:
@@ -60,7 +61,7 @@ predictor = CustomVisionPredictionClient(endpoint, prediction_credentials)
 os.makedirs('parking_images', exist_ok=True)
 
 # Log directory
-LOG_FILE = "temperature_logs.txt"
+LOG_FILE = "logs.txt"
 
 # LCD Functions
 def lcd_command(cmd):
@@ -99,7 +100,7 @@ def display_lcd_line1(time_str, temp):
 
 def display_lcd_line2(text):
     lcd_command(0xC0)
-    lcd_write(text[:16])  # Limit to 16 chars for LCD
+    lcd_write(text[:16]) 
 
 def analyze_parking(image_data):
     image_data.seek(0)
@@ -137,15 +138,13 @@ def save_image_with_results(image_data, tag, probability, filename, temperature=
         return None
 
 
-def log_temperature(temperature):
-    """Logs temperature with timestamp in format: 2025-05-04T14:30:22 - 23.5°C"""
+def log_data(temperature, occupancy):
     timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-    log_entry = f"{timestamp} - {temperature:.1f}°C\n"
+    log_entry = f"{timestamp} - {temperature:.1f}°C - {occupancy}\n"
     
     with open(LOG_FILE, 'a') as f:
-        f.write(log_entry)     
+        f.write(log_entry)
 
-from azure.iot.device.exceptions import ConnectionFailedError
 
 def send_with_retry(device_client, message, max_retries=3, initial_delay=1):
     for attempt in range(max_retries):
@@ -167,7 +166,7 @@ def take_and_process_photo():
     tag, probability = analyze_parking(image_stream)
     _, temp = sensor.read()
 
-    log_temperature(temp)
+    log_data(temp, tag)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"parking_images/parking_{timestamp}.jpg"
